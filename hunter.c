@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <wait.h>
 
+static unsigned int FORK_FLAG = 0;
 
 /* https://codereview.stackexchange.com/questions/29198/random-string-generator-in-c */
 static char* form_rand_string(char* str, size_t size)
@@ -49,54 +50,51 @@ static long hash()
     return hash;
 }
 
-void forking(FILE* fork_file, long hash_limit, long fork_limit)
+static void signal_forker(int sig)
 {
-    long hash_count = 0;
+    FORK_FLAG = 1;
+}
+
+void forking()
+{
+    FILE* fork_file = fopen("./forkstat.log", "w");
+    fprintf(fork_file, "Hash Value | PID \n");
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sa.sa_handler = signal_forker;
+    sigaction(SIGINT, &sa, NULL);
     while(1)
     {
         long hash_val = hash(); 
         sleep(1);
-        fprintf(fork_file, "Hash Value %ld | PID %ld\n", hash_val, (long)getpid());
-        ++hash_count;
-        if (hash_count >= hash_limit)
+        fprintf(fork_file, "%ld %ld\n", hash_val, (long)getpid());
+
+        if (FORK_FLAG == 1)
         {
+            FORK_FLAG = 0;
             switch (fork()) {
                 case -1:
                     fprintf(stderr, "Fork failure\n");
                     return;
 
                 case 0:
-                    if (fork_limit >= 0)
-                    {
-                        pid_t parent_pid = getppid();
-                        fprintf(fork_file, "%ld -> %ld\n", (long)parent_pid, (long)getpid());
-                        kill(parent_pid, SIGTERM);
-                        --fork_limit;
-                        hash_count = 0;
-                        /* forking(fork_file, hash_limit,  fork_limit); */
-                    }
-                    else
-                    {
-                        kill(getppid(), SIGTERM);
-                        return;
-                    }
+                    fprintf(fork_file, "%ld -> %ld\n", 
+                            (long)getppid(), (long)getpid());
+                    kill(getppid(), SIGTERM);
                 default:
                     wait(NULL);
             }
-        }   
+        }
+        fflush(fork_file);
     }  
+    fclose(fork_file);
 }
 
 int main()
 {
-    long hash_limit = 5;
-    long fork_limit = 5;
-    
     time_t time_seed;
     srand((unsigned) time(&time_seed));
 
     setbuf(stdout, NULL); // Disable buffering of stdout
-    FILE* fork_file = fopen("./forkstat.log", "w");
-    forking(fork_file, hash_limit, fork_limit);
-    fclose(fork_file);
+    forking();
 }
