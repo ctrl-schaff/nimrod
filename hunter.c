@@ -1,52 +1,12 @@
+/*
+ * Agent for searching for the specified target through the 
+ * /proc filesystem and attempting to terminate it before it
+ * can bisect to another instance
+ */
+
 #define _POSIX_SOURCE
-#include <argp.h>
-#include <dirent.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wait.h>
 
-
-// Set up the argument parser
-static char doc[] = "trigger -- mechanism for triggering a fork";
-static char args_doc[] = "";  
-
-// Order of fields: {NAME, KEY, ARG, FLAGS, DOC, GROUP}.
-static struct argp_option options[] = {
-    {"pname", 'p', "DEFAULT", 0, "Process name to search", 0},
-    { 0, 0, 0, 0, 0, 0} // Last entry should be all zeros in all fields
-};
-
-/* Used by main to communicate with parse_opt. */
-struct arguments
-{
-    char* pname;
-};
-
-// Order of parameters: KEY, ARG, STATE.
-// Parse a single option.
-static error_t parse_opt (int key, char *arg, struct argp_state *state)
-{
-    /* Get the input argument from argp_parse, which we
-     know is a pointer to our arguments structure. */
-    struct arguments *arguments = state->input;
-
-    // Figure out which option we are parsing, and decide
-    // how to store it
-    switch (key)
-    {
-        case 'p':
-            arguments->pname = arg;
-            break;
-
-        default:
-            return ARGP_ERR_UNKNOWN;
-    }
-    return 0;
-}
-
-static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
+#include "hunter.h"
 
 void shot(pid_t proc)
 {
@@ -84,7 +44,6 @@ pid_t hunt(char* psearch)
     int pid = -1;
     FILE* proc_fp = NULL;
 
-
     while (entry = readdir(dir))
     {
         if (is_pid_dir(entry))
@@ -116,16 +75,12 @@ pid_t hunt(char* psearch)
     return pid;
 }
 
-int main(int argc, char* argv[])
+void hunter()
 {
-    struct arguments argp_arg;
-	argp_arg.pname = "DEFAULT";
-
-	argp_parse(&argp, argc, argv, 0, 0, &argp_arg);
-    pid_t disc_proc = hunt(argp_arg.pname);
-    if (disc_proc != -1)
+    char* target_name = "(vulture)";
+    while(1)
     {
-        shot(disc_proc);
+        pid_t target_pid = hunt(target_name);
+        shot(target_pid);
     }
-    return 0;
 }

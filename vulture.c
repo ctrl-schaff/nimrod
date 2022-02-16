@@ -1,68 +1,22 @@
+/*
+ * Agent for attempting to avoid detection from
+ * hunter by bisecting its processing when signaled
+ * and splitting to a child process while killing the
+ * parent
+ */
 #define _POSIX_SOURCE
-#include <errno.h>
-#include <fcntl.h>
-#include <math.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <time.h>
-#include <unistd.h>
-#include <wait.h>
+#include "task.h"
+#include "vulture.h"
+
 
 static unsigned int FORK_FLAG = 0;
-
-/* https://codereview.stackexchange.com/questions/29198/random-string-generator-in-c */
-static char* form_rand_string(char* str, size_t size)
-{
-    const char charset[] = "abcdefghijklmnopqrstuvwxyz";
-    int charset_size = 25;
-    int key = 0;
-    if (size > 0) 
-    {
-        --size;
-        for (size_t n = 0; n < size; n++) 
-        {
-            key = rand() % charset_size;
-            str[n] = charset[key];
-        }
-        str[size] = '\0';
-    }
-    return str;
-}
-
-static long hash()
-{
-    long hash = 0;
-    size_t str_size = 10;
-    char rand_str[str_size]; 
-    form_rand_string(rand_str, str_size);
-    const int a = rand() * 10;
-    const int m = rand() * 15;
-    for (int i = 0; i < str_size; ++i)
-    {
-        hash += (long)pow(a, str_size - (i+1)) * rand_str[i];
-        hash = hash % m;
-    }
-    return hash;
-}
-
-static void signal_forker(int sig)
+void signal_forker(int sig)
 {
     FORK_FLAG = 1;
 }
 
-void forking()
+void circle(FILE* fork_file)
 {
-    FILE* fork_file = fopen("./forkstat.log", "w");
-    fprintf(fork_file, "Hash Value | PID \n");
-    struct sigaction sa;
-    sa.sa_flags = 0;
-    sa.sa_handler = signal_forker;
-    sigaction(SIGINT, &sa, NULL);
     while(1)
     {
         long hash_val = hash(); 
@@ -72,11 +26,11 @@ void forking()
         if (FORK_FLAG == 1)
         {
             FORK_FLAG = 0;
-            switch (fork()) {
+            switch (fork()) 
+            {
                 case -1:
                     fprintf(stderr, "Fork failure\n");
                     return;
-
                 case 0:
                     fprintf(fork_file, "%ld -> %ld\n", 
                             (long)getppid(), (long)getpid());
@@ -90,11 +44,62 @@ void forking()
     fclose(fork_file);
 }
 
-int main()
+void monitor()
 {
-    time_t time_seed;
-    srand((unsigned) time(&time_seed));
+    char watch_dir[256];
+    snprintf(watch_dir, sizeof(watch_dir), "/proc/%d", getpid());
 
-    setbuf(stdout, NULL); // Disable buffering of stdout
-    forking();
+    static const int event_size = sizeof(struct inotify_event);
+    static const int event_buffer_length = (1024 * (event_size + 16));
+    char buffer[event_buffer_length];
+
+    int fd = inotify_init();
+    if (fd < 0) 
+    {
+        fprintf(stderr, "Issue with inotify_init");
+        return;
+    }
+
+    int wd = inotify_add_watch(fd, watch_dir, IN_ACCESS | IN_OPEN);
+
+    // Blocking read to determine the event change happens on the watch directory 
+    int length = read(fd, buffer, event_buffer_length); 
+
+    if (length < 0) 
+    {
+        fprintf(stderr, "Unable to read the notify buffer");
+    }  
+    else
+    {
+        inotify_rm_watch(fd, wd);
+        close(fd);
+
+        printf("Sending SIGINT to %d\n", getppid());
+        kill(getppid(), SIGINT);
+    }
 }
+
+void vulture()
+{
+    FILE* fork_file = fopen("./forkstat.log", "w");
+    fprintf(fork_file, "Hash Value | PID \n");
+
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sa.sa_handler = signal_forker;
+    sigaction(SIGINT, &sa, NULL);
+
+    switch (fork()) 
+    {
+        case -1:
+            fprintf(stderr, "Fork failure\n");
+            return;
+
+        case 0:
+            monitor();
+
+        default:
+            circle(fork_file);
+    }
+}
+
