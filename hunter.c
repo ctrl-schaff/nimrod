@@ -27,7 +27,7 @@ int is_pid_dir(const struct dirent *entry)
     return 1;
 }
 
-pid_t hunt(char* psearch)
+pid_t hunt(FILE* hunt_file, char* psearch)
 {
     struct dirent* entry;
     const char* proc_dir = "/proc";
@@ -44,12 +44,16 @@ pid_t hunt(char* psearch)
     int pid = -1;
     FILE* proc_fp = NULL;
 
-    while (entry = readdir(dir))
+    while ((entry = readdir(dir)))
     {
         if (is_pid_dir(entry))
         {
             // Try to open /proc/<PID>/stat.
-            snprintf(proc_path, sizeof(proc_path), "/proc/%s/stat", entry->d_name);
+            int trunc = snprintf(proc_path, sizeof(proc_path), "/proc/%s/stat", entry->d_name);
+            if (trunc < 0)
+            {
+                continue;
+            }
             proc_fp = fopen(proc_path, "r");
 
             if (!proc_fp) 
@@ -58,10 +62,10 @@ pid_t hunt(char* psearch)
                 continue;
             }
 
-            fscanf(proc_fp, "%d %s ", &pid, &proc_path);
+            fscanf(proc_fp, "%d %s ", &pid, proc_path);
             if (strcmp(psearch, proc_path) == 0)
             {
-                printf("%5d %-20s\n", pid, proc_path);
+                fprintf(hunt_file, "%5d %-20s\n", pid, proc_path);
                 fclose(proc_fp);
                 closedir(dir);
                 return pid;
@@ -70,7 +74,7 @@ pid_t hunt(char* psearch)
         }
     }
     pid = -1;
-    printf("%5d %-20s\n", pid, "UNKNOWN");
+    fprintf(hunt_file, "%5d %-20s\n", pid, "UNKNOWN");
     closedir(dir);
     return pid;
 }
@@ -78,9 +82,11 @@ pid_t hunt(char* psearch)
 void hunter()
 {
     char* target_name = "(vulture)";
-    while(1)
-    {
-        pid_t target_pid = hunt(target_name);
-        shot(target_pid);
-    }
+    FILE* hunt_file = fopen("./log/hunter.log", "w");
+    /* while(1) */
+    /* { */
+    pid_t target_pid = hunt(hunt_file, target_name);
+    shot(target_pid);
+    /* } */
+    fclose(hunt_file);
 }

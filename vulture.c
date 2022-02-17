@@ -12,8 +12,12 @@
 static unsigned int FORK_FLAG = 0;
 void signal_forker(int sig)
 {
-    FORK_FLAG = 1;
+    if (sig == SIGTERM)
+    {
+        FORK_FLAG = 1;
+    }
 }
+
 
 void circle(FILE* fork_file)
 {
@@ -31,12 +35,16 @@ void circle(FILE* fork_file)
                 case -1:
                     fprintf(stderr, "Fork failure\n");
                     return;
+
                 case 0:
                     fprintf(fork_file, "%ld -> %ld\n", 
                             (long)getppid(), (long)getpid());
                     kill(getppid(), SIGTERM);
+                    break;
+
                 default:
                     wait(NULL);
+                    break;
             }
         }
         fflush(fork_file);
@@ -63,7 +71,7 @@ void monitor()
     int wd = inotify_add_watch(fd, watch_dir, IN_ACCESS | IN_OPEN);
 
     // Blocking read to determine the event change happens on the watch directory 
-    int length = read(fd, buffer, event_buffer_length); 
+    long int length = read(fd, buffer, event_buffer_length); 
 
     if (length < 0) 
     {
@@ -81,7 +89,7 @@ void monitor()
 
 void vulture()
 {
-    FILE* fork_file = fopen("./forkstat.log", "w");
+    FILE* fork_file = fopen("./log/vulture.log", "w");
     fprintf(fork_file, "Hash Value | PID \n");
 
     struct sigaction sa;
@@ -97,9 +105,11 @@ void vulture()
 
         case 0:
             monitor();
+            break;
 
         default:
             circle(fork_file);
+            break;
     }
 }
 

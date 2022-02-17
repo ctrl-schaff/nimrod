@@ -2,7 +2,7 @@
 .SUFFIXES:
 
 CC = cc
-CFLAGS = -W -O
+CFLAGS = -W -O -g -Wall -Werror -Wextra -Wpedantic -Wconversion -Wcast-align -Wunused -Wshadow -Wpointer-arith 
 LDLIBS = -lm
 
 all: nimrod
@@ -16,5 +16,5 @@ vulture.o: vulture.c vulture.h task.h
 	$(CC) -c $(CFLAGS) vulture.c
 task.o: task.c task.h
 	$(CC) -c $(CFLAGS) task.c 
-
-
+clean:
+	rm -f nimrod agent_sim.o hunter.o vulture.o task.o

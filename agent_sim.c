@@ -21,8 +21,10 @@ int main()
             return -1;
         case 0:
             vulture();
+            break;
         default:
             sleep(5);
-            hunter();
+            break;
+            /* hunter(); */
     }
 }

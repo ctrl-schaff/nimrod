@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-char* form_rand_string(char* str, size_t size);
+char* form_rand_string(char* str, unsigned int size);
 long hash();
 
 #endif // TASK_H_
