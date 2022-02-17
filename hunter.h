@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wait.h>
+#include <unistd.h>
 
 void shot(pid_t proc);
 int is_pid_dir(const struct dirent *entry);

@@ -23,8 +23,8 @@ int main()
             vulture();
             break;
         default:
-            sleep(5);
+            sleep(1);
+            hunter();
             break;
-            /* hunter(); */
     }
 }

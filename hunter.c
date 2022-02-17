@@ -55,7 +55,6 @@ pid_t hunt(FILE* hunt_file, char* psearch)
                 continue;
             }
             proc_fp = fopen(proc_path, "r");
-
             if (!proc_fp) 
             {
                 perror(proc_path);
@@ -83,10 +82,13 @@ void hunter()
 {
     char* target_name = "(vulture)";
     FILE* hunt_file = fopen("./log/hunter.log", "w");
-    /* while(1) */
-    /* { */
-    pid_t target_pid = hunt(hunt_file, target_name);
-    shot(target_pid);
-    /* } */
+    while(1)
+    {
+        pid_t target_pid = hunt(hunt_file, target_name);
+        if (target_pid != -1)
+        {
+            shot(target_pid);
+        }
+    }
     fclose(hunt_file);
 }

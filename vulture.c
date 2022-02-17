@@ -12,7 +12,7 @@
 static unsigned int FORK_FLAG = 0;
 void signal_forker(int sig)
 {
-    if (sig == SIGTERM)
+    if (sig == SIGINT)
     {
         FORK_FLAG = 1;
     }
