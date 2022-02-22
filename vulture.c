@@ -5,12 +5,13 @@
  * parent
  */
 #define _POSIX_SOURCE
+
+#include "monitor.h"
 #include "task.h"
 #include "vulture.h"
 
-
 static unsigned int FORK_FLAG = 0;
-void signal_forker(int sig)
+void vulture_fork(int sig)
 {
     if (sig == SIGINT)
     {
@@ -18,98 +19,88 @@ void signal_forker(int sig)
     }
 }
 
+void write_pid(char* pidfile, pid_t pid_val)
+{
 
-void circle(FILE* fork_file)
+    FILE* vulture_pid = fopen(pidfile, "w");
+    if (vulture_pid != NULL)
+    {
+        fprintf(vulture_pid, "%d", (int)pid_val);
+        fclose(vulture_pid);
+    }
+}
+
+void circle(FILE* vulture_log, char* vulture_pid, pid_t monitor_pid)
 {
     while(1)
     {
         long hash_val = hash(); 
         sleep(1);
-        fprintf(fork_file, "%ld %ld\n", hash_val, (long)getpid());
+        fprintf(vulture_log, "%ld %ld\n", hash_val, (long)getpid());
 
         if (FORK_FLAG == 1)
         {
             FORK_FLAG = 0;
+            pid_t dead_proc;
+            pid_t fresh_proc;
             switch (fork()) 
             {
                 case -1:
-                    fprintf(stderr, "Fork failure\n");
+                    fprintf(vulture_log, "Fork failure\n");
                     return;
 
                 case 0:
-                    fprintf(fork_file, "%ld -> %ld\n", 
-                            (long)getppid(), (long)getpid());
+                    dead_proc = getppid();
+                    fresh_proc = getpid();
+                    fprintf(vulture_log, "%ld -> %ld\n",
+                            (long)dead_proc, (long)fresh_proc);
+                    fprintf(vulture_log,
+                            "Sending SIGTERM to %d\n", dead_proc);
                     kill(getppid(), SIGTERM);
+                    write_pid(vulture_pid, fresh_proc);
+                    kill(SIGUSR1, monitor_pid);
                     break;
 
                 default:
-                    wait(NULL);
-                    break;
+                    return;
             }
         }
-        fflush(fork_file);
-    }  
-    fclose(fork_file);
+        fflush(vulture_log);
+    }
+    fclose(vulture_log);
 }
 
-void monitor()
-{
-    char watch_dir[256];
-    snprintf(watch_dir, sizeof(watch_dir), "/proc/%d", getpid());
-
-    static const int event_size = sizeof(struct inotify_event);
-    static const int event_buffer_length = (1024 * (event_size + 16));
-    char buffer[event_buffer_length];
-
-    int fd = inotify_init();
-    if (fd < 0) 
-    {
-        fprintf(stderr, "Issue with inotify_init");
-        return;
-    }
-
-    int wd = inotify_add_watch(fd, watch_dir, IN_ACCESS | IN_OPEN);
-
-    // Blocking read to determine the event change happens on the watch directory 
-    long int length = read(fd, buffer, event_buffer_length); 
-
-    if (length < 0) 
-    {
-        fprintf(stderr, "Unable to read the notify buffer");
-    }  
-    else
-    {
-        inotify_rm_watch(fd, wd);
-        close(fd);
-
-        printf("Sending SIGINT to %d\n", getppid());
-        kill(getppid(), SIGINT);
-    }
-}
 
 void vulture()
 {
-    FILE* fork_file = fopen("./log/vulture.log", "w");
-    fprintf(fork_file, "Hash Value | PID \n");
+    FILE* vulture_log = fopen("./log/vulture.log", "w");
+    const char* monitor_proc = "vmonitor";
+    char* vulture_pid = "./pid/vulture.pid";
 
     struct sigaction sa;
     sa.sa_flags = 0;
-    sa.sa_handler = signal_forker;
+    sa.sa_handler = vulture_fork;
     sigaction(SIGINT, &sa, NULL);
 
-    switch (fork()) 
+    pid_t monitor_pid;
+    switch (monitor_pid = fork()) 
     {
         case -1:
-            fprintf(stderr, "Fork failure\n");
+            fprintf(vulture_log, "Fork failure\n");
             return;
 
         case 0:
-            monitor();
+            if (prctl(PR_SET_NAME, (unsigned long) monitor_proc) < 0)
+            {
+                fprintf(vulture_log, "Unable to set child name to %s", monitor_proc);
+                return;
+            }
+            vwatch(vulture_log, vulture_pid);
             break;
 
         default:
-            circle(fork_file);
-            break;
+           write_pid(vulture_pid, getpid());
+           circle(vulture_log, vulture_pid, monitor_pid);
+           break;
     }
 }
-

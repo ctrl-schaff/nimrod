@@ -10,7 +10,6 @@
 
 void shot(pid_t proc)
 {
-    printf("Sending SIGTERM to %d\n", proc);
     kill(proc, SIGTERM);
 }
 
@@ -85,10 +84,16 @@ void hunter()
     while(1)
     {
         pid_t target_pid = hunt(hunt_file, target_name);
-        if (target_pid != -1)
+        if (target_pid > 300)
         {
+            fprintf(hunt_file, "Sending SIGTERM to %d\n", target_pid);
             shot(target_pid);
         }
+        else
+        {
+            break;    
+        }
+        sleep(1);
     }
     fclose(hunt_file);
 }
