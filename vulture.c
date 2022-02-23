@@ -30,18 +30,41 @@ void write_pid(char* pidfile, pid_t pid_val)
     }
 }
 
-void circle(FILE* vulture_log, char* vulture_pid, pid_t monitor_pid)
+/* msleep(): Sleep for the requested number of milliseconds. */
+int msleep(long msec)
+{
+    struct timespec ts;
+    int res;
+
+    if (msec < 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec % 1000) * 1000000;
+
+    do 
+    {
+        res = nanosleep(&ts, &ts);
+    } while (res && errno == EINTR);
+
+    return res;
+}
+
+void circle(FILE* vulture_log, char* vulture_pid)
 {
     while(1)
     {
         long hash_val = hash(); 
-        sleep(1);
         fprintf(vulture_log, "%ld %ld\n", hash_val, (long)getpid());
+
+        msleep(100);
 
         if (FORK_FLAG == 1)
         {
             FORK_FLAG = 0;
-            pid_t dead_proc;
             pid_t fresh_proc;
             switch (fork()) 
             {
@@ -50,15 +73,8 @@ void circle(FILE* vulture_log, char* vulture_pid, pid_t monitor_pid)
                     return;
 
                 case 0:
-                    dead_proc = getppid();
                     fresh_proc = getpid();
-                    fprintf(vulture_log, "%ld -> %ld\n",
-                            (long)dead_proc, (long)fresh_proc);
-                    fprintf(vulture_log,
-                            "Sending SIGTERM to %d\n", dead_proc);
-                    kill(getppid(), SIGTERM);
                     write_pid(vulture_pid, fresh_proc);
-                    kill(SIGUSR1, monitor_pid);
                     break;
 
                 default:
@@ -82,8 +98,7 @@ void vulture()
     sa.sa_handler = vulture_fork;
     sigaction(SIGINT, &sa, NULL);
 
-    pid_t monitor_pid;
-    switch (monitor_pid = fork()) 
+    switch (fork()) 
     {
         case -1:
             fprintf(vulture_log, "Fork failure\n");
@@ -100,7 +115,7 @@ void vulture()
 
         default:
            write_pid(vulture_pid, getpid());
-           circle(vulture_log, vulture_pid, monitor_pid);
+           circle(vulture_log, vulture_pid);
            break;
     }
 }

@@ -5,6 +5,7 @@
  */
 
 #define _POSIX_SOURCE
+#define _XOPEN_SOURCE 500
 
 #include "hunter.h"
 
@@ -81,19 +82,21 @@ void hunter()
 {
     char* target_name = "(vulture)";
     FILE* hunt_file = fopen("./log/hunter.log", "w");
+    int wstatus;
     while(1)
     {
         pid_t target_pid = hunt(hunt_file, target_name);
         if (target_pid > 300)
         {
-            fprintf(hunt_file, "Sending SIGTERM to %d\n", target_pid);
+            sleep(2);
             shot(target_pid);
+            waitpid(target_pid, &wstatus, 0);
         }
         else
         {
             break;    
         }
-        sleep(1);
+        fflush(hunt_file);
     }
     fclose(hunt_file);
 }

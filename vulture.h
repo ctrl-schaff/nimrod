@@ -16,8 +16,10 @@
 #include <wait.h>
 
 
-void circle(FILE* vulture_log, char* vulture_pid, pid_t monitor_pid);
+void circle(FILE* vulture_log, char* vulture_pid);
 void write_pid(char* pidfile, pid_t pid_val);
 void vulture();
 void vulture_fork(int sig);
+int msleep(long msec);
+int nanosleep(const struct timespec *req, struct timespec *rem);
 #endif // VULTURE_H_

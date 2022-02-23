@@ -12,10 +12,10 @@ agent.o: agent.c hunter.h vulture.h
 	$(CC) -c $(CFLAGS) agent.c
 vulture.o: vulture.c vulture.h task.h monitor.h
 	$(CC) -c $(CFLAGS) vulture.c
+monitor.o: monitor.c monitor.h hunter.h
+	$(CC) -c $(CFLAGS) monitor.c 
 hunter.o: hunter.c hunter.h
 	$(CC) -c $(CFLAGS) hunter.c
-monitor.o: monitor.c monitor.h
-	$(CC) -c $(CFLAGS) monitor.c 
 task.o: task.c task.h
 	$(CC) -c $(CFLAGS) task.c 
 clean:

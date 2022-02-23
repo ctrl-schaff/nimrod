@@ -2,17 +2,7 @@
 #define _XOPEN_SOURCE 500
 
 #include "monitor.h"
-
-void monitor_handler() {}
-
-void pid_wait()
-{
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset, SIGUSR1);
-    sigprocmask(SIG_BLOCK, &sigset, NULL);
-    pause();
-}
+#include "hunter.h"
 
 pid_t read_vulture_pid(const char* vulture_pid)
 {
@@ -54,7 +44,7 @@ void monitor(FILE* vulture_log, pid_t monitor_pid)
         {
             inotify_rm_watch(fd, wd);
             close(fd);
-            fprintf(vulture_log, "Sending SIGINT to %d\n", monitor_pid);
+            fflush(vulture_log);
             kill(monitor_pid, SIGINT);
         }
     }
@@ -63,20 +53,40 @@ void monitor(FILE* vulture_log, pid_t monitor_pid)
         fprintf(vulture_log, "Provided PID is a kernel level PID %d", monitor_pid);
         return;
     }
+    fflush(vulture_log);
+}
+
+void _vwatch(FILE* vulture_log, const char* vulture_pid)
+{
+    while(1)
+    {
+        pid_t vpid = read_vulture_pid(vulture_pid);
+        if (vpid > 300)
+        {
+            monitor(vulture_log, vpid);
+            fflush(vulture_log);
+
+            // Initialize search
+            hunt(vulture_log, "(vulture)");
+        }
+        fflush(vulture_log);
+    }
 }
 
 void vwatch(FILE* vulture_log, const char* vulture_pid)
 {
-
-    struct sigaction sa;
-    sa.sa_flags = 0;
-    sa.sa_handler = monitor_handler;
-    sigaction(SIGUSR1, &sa, NULL);
-
-    while(1)
+    switch (fork()) 
     {
-        pid_t vpid = read_vulture_pid(vulture_pid);
-        fprintf(vulture_log, "Monitor -> %ld\n", (long)vpid);
-        monitor(vulture_log, vpid);
+        case -1:
+            fprintf(stderr, "Fork failure\n");
+            return;
+        case 0:
+            sleep(2);
+            hunt(NULL, "(vulture)");
+            break;
+        default:
+            _vwatch(vulture_log, vulture_pid);
+            break;
     }
+
 }
