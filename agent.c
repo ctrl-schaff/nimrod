@@ -2,6 +2,7 @@
  * Main interface for controling the vulture and hunter 
  * agents
  */
+#include <argp.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -12,9 +13,45 @@
 #include "vulture.h"
 #include "hunter.h"
 
+static char doc[] = "trigger -- mechanism for triggering a fork";
+static char args_doc[] = "";  
 
-int main()
+// Order of fields: {NAME, KEY, ARG, FLAGS, DOC, GROUP}.
+static struct argp_option options[] = {
+    {"huntersleep", 'h', "SLEEP", 0, "Hunter agent sleep time (ms)", 0},
+    { 0, 0, 0, 0, 0, 0}
+};
+
+struct arguments
 {
+    int hsleep;
+};
+
+static error_t parse_opt(int key, char* arg, struct argp_state* state)
+{
+    struct arguments* arguments = state->input;
+
+    switch (key)
+    {
+        case 'h':
+            arguments->hsleep = atoi(arg);
+            break;
+
+        default:
+            return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+}
+
+static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
+
+int main(int argc, char* argv[])
+{
+    struct arguments argp_arg;
+	argp_arg.hsleep = 2000;
+
+	argp_parse(&argp, argc, argv, 0, 0, &argp_arg);
+
     const char* vulture_proc = "vulture";
     const char* hunter_proc = "hunter";
     time_t time_seed;
@@ -40,7 +77,7 @@ int main()
                 return -1;
             }
             sleep(5);
-            hunter();
+            hunter(argp_arg.hsleep);
             break;
     }
 }

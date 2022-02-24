@@ -65,28 +65,25 @@ void _vwatch(FILE* vulture_log, const char* vulture_pid)
         {
             monitor(vulture_log, vpid);
             fflush(vulture_log);
-
-            // Initialize search
-            hunt(vulture_log, "(vulture)");
         }
-        fflush(vulture_log);
     }
 }
 
 void vwatch(FILE* vulture_log, const char* vulture_pid)
 {
+    FILE* monitor_log = fopen("./log/monitor.log", "w");
     switch (fork()) 
     {
         case -1:
             fprintf(stderr, "Fork failure\n");
             return;
         case 0:
-            sleep(2);
-            hunt(NULL, "(vulture)");
+            sleep(1);
+            hunt(monitor_log, "(vulture)");
             break;
         default:
             _vwatch(vulture_log, vulture_pid);
             break;
     }
-
+    fclose(monitor_log);
 }

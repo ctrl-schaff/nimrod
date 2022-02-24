@@ -8,6 +8,7 @@
 #define _XOPEN_SOURCE 500
 
 #include "hunter.h"
+#include "vtime.h"
 
 void shot(pid_t proc)
 {
@@ -78,7 +79,7 @@ pid_t hunt(FILE* hunt_file, char* psearch)
     return pid;
 }
 
-void hunter()
+void hunter(int sleep_time)
 {
     char* target_name = "(vulture)";
     FILE* hunt_file = fopen("./log/hunter.log", "w");
@@ -88,7 +89,7 @@ void hunter()
         pid_t target_pid = hunt(hunt_file, target_name);
         if (target_pid > 300)
         {
-            sleep(2);
+            msleep(sleep_time);
             shot(target_pid);
             waitpid(target_pid, &wstatus, 0);
         }
