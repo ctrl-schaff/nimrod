@@ -16,7 +16,7 @@
 
 
 pid_t read_vulture_pid(const char* vulture_pid);
-void vwatch(FILE* vulture_log, const char* vulture_pid);
-void _vwatch(FILE* vulture_log, const char* vulture_pid);
+void vwatch(const char* vulture_pid);
+void _vwatch(FILE* vmonitor_log, const char* vulture_pid);
 void monitor(FILE* vulture_log, pid_t monitor_pid);
 #endif // MONITOR_H_

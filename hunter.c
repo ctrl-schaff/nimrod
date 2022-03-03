@@ -28,7 +28,7 @@ int is_pid_dir(const struct dirent *entry)
     return 1;
 }
 
-pid_t hunt(FILE* hunt_file, char* psearch)
+pid_t hunt(FILE* hunter_log, char* psearch)
 {
     struct dirent* entry;
     const char* proc_dir = "/proc";
@@ -65,7 +65,7 @@ pid_t hunt(FILE* hunt_file, char* psearch)
             fscanf(proc_fp, "%d %s ", &pid, proc_path);
             if (strcmp(psearch, proc_path) == 0)
             {
-                fprintf(hunt_file, "%5d %-20s\n", pid, proc_path);
+                fprintf(hunter_log, "%5d %-20s\n", pid, proc_path);
                 fclose(proc_fp);
                 closedir(dir);
                 return pid;
@@ -74,19 +74,19 @@ pid_t hunt(FILE* hunt_file, char* psearch)
         }
     }
     pid = -1;
-    fprintf(hunt_file, "%5d %-20s\n", pid, "UNKNOWN");
+    fprintf(hunter_log, "%5d %-20s\n", pid, "UNKNOWN");
     closedir(dir);
     return pid;
 }
 
-void hunter(int sleep_time)
+void hunter(int sleep_time, const char* hunter_log_path)
 {
     char* target_name = "(vulture)";
-    FILE* hunt_file = fopen("./log/hunter.log", "w");
+    FILE* hunter_log = fopen(hunter_log_path, "w");
     int wstatus;
     while(1)
     {
-        pid_t target_pid = hunt(hunt_file, target_name);
+        pid_t target_pid = hunt(hunter_log, target_name);
         if (target_pid > 300)
         {
             msleep(sleep_time);
@@ -97,7 +97,7 @@ void hunter(int sleep_time)
         {
             break;    
         }
-        fflush(hunt_file);
+        fflush(hunter_log);
     }
-    fclose(hunt_file);
+    fclose(hunter_log);
 }

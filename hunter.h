@@ -17,6 +17,6 @@ int is_pid_dir(const struct dirent *entry);
 
 //https://stackoverflow.com/questions/63372288/getting-list-of-pids-from-proc-in-linux
 pid_t hunt(FILE* hunt_file, char* psearch);
-void hunter(int sleep_time);
+void hunter(int sleep_time, const char* hunter_log_path);
 
 #endif // HUNTER_H_

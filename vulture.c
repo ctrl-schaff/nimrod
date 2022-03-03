@@ -6,17 +6,24 @@
  */
 #define _POSIX_SOURCE
 
-#include "monitor.h"
+#include "vmonitor.h"
 #include "task.h"
 #include "vulture.h"
 #include "vtime.h"
 
 static unsigned int FORK_FLAG = 0;
-void vulture_fork(int sig)
+static pid_t VMONITOR_PID;
+
+void vulture_handler(int sig)
 {
     if (sig == SIGINT)
     {
         FORK_FLAG = 1;
+    }
+    else if (sig == SIGTERM)
+    {
+        kill(VMONITOR_PID, SIGTERM);
+        _exit(0);
     }
 }
 
@@ -31,15 +38,14 @@ void write_pid(char* pidfile, pid_t pid_val)
     }
 }
 
-
-void circle(FILE* vulture_log, char* vulture_pid)
+void circle(FILE* vulture_log, char* vulture_pid, int vsleep)
 {
     while(1)
     {
         long hash_val = hash(); 
         fprintf(vulture_log, "%ld %ld\n", hash_val, (long)getpid());
 
-        msleep(100);
+        msleep(vsleep);
 
         if (FORK_FLAG == 1)
         {
@@ -65,19 +71,19 @@ void circle(FILE* vulture_log, char* vulture_pid)
     fclose(vulture_log);
 }
 
-
-void vulture()
+void vulture(const int vsleep, const char* vulture_log_path)
 {
-    FILE* vulture_log = fopen("./log/vulture.log", "w");
+    FILE* vulture_log = fopen(vulture_log_path, "w");
     const char* monitor_proc = "vmonitor";
     char* vulture_pid = "./pid/vulture.pid";
 
     struct sigaction sa;
     sa.sa_flags = 0;
-    sa.sa_handler = vulture_fork;
+    sa.sa_handler = vulture_handler;
     sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
 
-    switch (fork()) 
+    switch (VMONITOR_PID = fork()) 
     {
         case -1:
             fprintf(vulture_log, "Fork failure\n");
@@ -89,12 +95,12 @@ void vulture()
                 fprintf(vulture_log, "Unable to set child name to %s", monitor_proc);
                 return;
             }
-            vwatch(vulture_log, vulture_pid);
+            vwatch(vulture_pid);
             break;
 
         default:
            write_pid(vulture_pid, getpid());
-           circle(vulture_log, vulture_pid);
+           circle(vulture_log, vulture_pid, vsleep);
            break;
     }
 }

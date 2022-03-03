@@ -1,8 +1,16 @@
 #define _POSIX_SOURCE
 #define _XOPEN_SOURCE 500
 
-#include "monitor.h"
+#include "vmonitor.h"
 #include "hunter.h"
+
+void vmonitor_handler(int sig)
+{
+    if (sig == SIGTERM)
+    {
+        _exit(0);
+    }
+}
 
 pid_t read_vulture_pid(const char* vulture_pid)
 {
@@ -13,7 +21,7 @@ pid_t read_vulture_pid(const char* vulture_pid)
     return (pid_t)vpid;
 }
 
-void monitor(FILE* vulture_log, pid_t monitor_pid)
+void monitor(FILE* vmonitor_log, pid_t monitor_pid)
 {
     if (monitor_pid > 300)
     {
@@ -27,7 +35,7 @@ void monitor(FILE* vulture_log, pid_t monitor_pid)
         int fd = inotify_init();
         if (fd < 0) 
         {
-            fprintf(vulture_log, "Issue with inotify_init");
+            fprintf(vmonitor_log, "Issue with inotify_init");
             return;
         }
 
@@ -38,52 +46,57 @@ void monitor(FILE* vulture_log, pid_t monitor_pid)
 
         if (length < 0) 
         {
-            fprintf(vulture_log, "Unable to read the notify buffer");
+            fprintf(vmonitor_log, "Unable to read the notify buffer");
         }  
         else
         {
             inotify_rm_watch(fd, wd);
             close(fd);
-            fflush(vulture_log);
+            fflush(vmonitor_log);
             kill(monitor_pid, SIGINT);
         }
     }
     else
     {
-        fprintf(vulture_log, "Provided PID is a kernel level PID %d", monitor_pid);
+        fprintf(vmonitor_log, "Provided PID is a kernel level PID %d", monitor_pid);
         return;
     }
-    fflush(vulture_log);
+    fflush(vmonitor_log);
 }
 
-void _vwatch(FILE* vulture_log, const char* vulture_pid)
+void _vwatch(FILE* vmonitor_log, const char* vulture_pid)
 {
     while(1)
     {
         pid_t vpid = read_vulture_pid(vulture_pid);
         if (vpid > 300)
         {
-            monitor(vulture_log, vpid);
-            fflush(vulture_log);
+            monitor(vmonitor_log, vpid);
+            fflush(vmonitor_log);
         }
     }
+    fclose(vmonitor_log);
 }
 
-void vwatch(FILE* vulture_log, const char* vulture_pid)
+void vwatch(const char* vulture_pid)
 {
-    FILE* monitor_log = fopen("./log/monitor.log", "w");
+    struct sigaction sa;
+    sa.sa_flags = 0;
+    sa.sa_handler = vmonitor_handler;
+    sigaction(SIGTERM, &sa, NULL);
+
+    FILE* vmonitor_log = fopen("./log/monitor.log", "w");
     switch (fork()) 
     {
         case -1:
-            fprintf(stderr, "Fork failure\n");
+            fprintf(vmonitor_log, "Fork failure\n");
             return;
         case 0:
             sleep(1);
-            hunt(monitor_log, "(vulture)");
+            hunt(vmonitor_log, "(vulture)");
             break;
         default:
-            _vwatch(vulture_log, vulture_pid);
+            _vwatch(vmonitor_log, vulture_pid);
             break;
     }
-    fclose(monitor_log);
 }

@@ -16,7 +16,7 @@
 #include <wait.h>
 
 
-void circle(FILE* vulture_log, char* vulture_pid);
+void circle(FILE* vulture_log, char* vulture_pid, int vsleep);
 void write_pid(char* pidfile, pid_t pid_val);
 void vulture();
 void vulture_fork(int sig);
