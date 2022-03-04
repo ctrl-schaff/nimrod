@@ -197,5 +197,5 @@ dmypy.json
 .\#*
 *.swp
 
-./log/
-./pid/
+log/
+pid/
